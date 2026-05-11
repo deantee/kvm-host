@@ -18,6 +18,11 @@ typedef struct {
     struct virtio_blk_dev virtio_blk_dev;
     struct virtio_net_dev virtio_net_dev;
     void *priv;
+
+    /* Judge framework */
+    void *judge;  /* judge_t * - opaque type to avoid circular includes */
+    int judge_enabled;
+    char judge_cgroup_path[256];
 } vm_t;
 
 int vm_arch_init(vm_t *v);

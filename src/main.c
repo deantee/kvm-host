@@ -6,15 +6,18 @@
 #include "err.h"
 #include "seccomp.h"
 #include "vm.h"
+#include "../judge/include/judge_module.h"
 
 static char *kernel_file = NULL, *initrd_file = NULL, *diskimg_file = NULL;
 static int enable_seccomp = 0;
+static int enable_judge = 0;
 
 /* Long-only option ids start above the ASCII range so they can never collide
  * with a short-option char in the getopt_long return.
  */
 enum {
     OPT_SECCOMP = 256,
+    OPT_JUDGE = 257,
 };
 
 #define print_option(args, help_msg) printf("  %-30s%s", args, help_msg)
@@ -28,6 +31,7 @@ static void usage(const char *execpath)
     print_option("-i, --initrd initrd", "Initial RAM disk image\n");
     print_option("-d, --disk disk-image",
                  "Disk image for virtio-blk devices\n");
+    print_option("-j, --judge", "Enable Online Judge mode.\n");
     print_option("--seccomp",
                  "Install a seccomp BPF allowlist before vm_run.\n");
 }
@@ -62,12 +66,12 @@ int main(int argc, char *argv[])
     int option_index = 0;
     struct option opts[] = {
         {"kernel", 1, NULL, 'k'}, {"initrd", 1, NULL, 'i'},
-        {"disk", 1, NULL, 'd'},   {"seccomp", 0, NULL, OPT_SECCOMP},
-        {"help", 0, NULL, 'h'},
+        {"disk", 1, NULL, 'd'},   {"judge", 0, NULL, 'j'},
+        {"seccomp", 0, NULL, OPT_SECCOMP}, {"help", 0, NULL, 'h'},
     };
 
     int c;
-    while ((c = getopt_long(argc, argv, "k:i:d:h", opts, &option_index)) !=
+    while ((c = getopt_long(argc, argv, "k:i:d:jh", opts, &option_index)) !=
            -1) {
         switch (c) {
         case 'i':
@@ -78,6 +82,9 @@ int main(int argc, char *argv[])
             break;
         case 'd':
             diskimg_file = optarg;
+            break;
+        case 'j':
+            enable_judge = 1;
             break;
         case OPT_SECCOMP:
             enable_seccomp = 1;
@@ -110,6 +117,10 @@ int main(int argc, char *argv[])
     if (vm_late_init(&vm) < 0)
         return -1;
 
+    /* Initialize judge framework if enabled */
+    if (judge_module_init(enable_judge, 512 * 1024 * 1024) < 0)
+        return throw_err("Failed to initialize judge module");
+
     /* Lock down the syscall surface before raw-mode and vm_run, so a
      * memory-corruption RCE in device emulation cannot escape to arbitrary host
      * syscalls. Off by default — opt in via --seccomp.
@@ -124,6 +135,7 @@ int main(int argc, char *argv[])
 
     vm_run(&vm);
     vm_exit(&vm);
+    judge_module_cleanup();
 
     return 0;
 }

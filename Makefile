@@ -7,6 +7,7 @@ CC ?= gcc
 CFLAGS = -O2
 CFLAGS += -Wall -std=gnu99
 CFLAGS += -I$(PWD)/src
+CFLAGS += -I$(PWD)/judge/include
 CFLAGS += -g
 LDFLAGS = -lpthread
 
@@ -33,7 +34,19 @@ OBJS := \
 	virtio-net.o \
 	diskimg.o \
 	seccomp.o \
-	main.o
+	main.o \
+	judge/src/judge_core.o \
+	judge/src/judge_executor.o \
+	judge/src/judge_verdict.o \
+	judge/src/judge_resource.o \
+	judge/src/judge_comparison.o \
+	judge/src/judge_module.o \
+	judge/src/judge_runner.o \
+	judge/src/judge_test.o \
+	judge/src/judge_stats.o \
+	judge/src/judge_perf.o \
+	judge/tests/test_cases.o \
+	judge/tests/test_runner.o
 
 ifeq ($(ARCH), x86_64)
 	CFLAGS += -I$(PWD)/src/arch/x86
@@ -56,6 +69,11 @@ $(BIN): $(OBJS)
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(OUT)/%.o: src/%.c
+	$(Q)mkdir -p $(shell dirname $@)
+	$(VECHO) "  CC\t$@\n"
+	$(Q)$(CC) -o $@ $(CFLAGS) -c -MMD -MF $@.d $<
+
+$(OUT)/judge/%.o: judge/%.c
 	$(Q)mkdir -p $(shell dirname $@)
 	$(VECHO) "  CC\t$@\n"
 	$(Q)$(CC) -o $@ $(CFLAGS) -c -MMD -MF $@.d $<
